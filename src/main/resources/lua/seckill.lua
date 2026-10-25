@@ -1,0 +1,16 @@
+-- 秒杀扣减脚本（D4 由你补全）
+-- 约定：
+--   KEYS[1] = 库存 key，例如 seckill:stock:1001
+--   ARGV[1] = 购买数量
+-- 返回：
+--   >= 0  扣减成功，值为剩余库存
+--   -1    库存不足
+--   -2    key 不存在（未预热）
+--
+-- 参考骨架（自己补完，写完删掉下面这段注释）：
+-- local stock = tonumber(redis.call('get', KEYS[1]))
+-- if stock == nil then return -2 end
+-- local qty = tonumber(ARGV[1])
+-- if stock < qty then return -1 end
+-- redis.call('decrby', KEYS[1], qty)
+-- return stock - qty

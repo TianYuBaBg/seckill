@@ -1,0 +1,13 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+.idea/
+*.iml
+*.iws
+.vscode/
+.DS_Store
+Thumbs.db
+logs/
+*.log
+loadtest/*.json
+!loadtest/report-sample.json
+__pycache__/
