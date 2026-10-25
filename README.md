@@ -78,6 +78,7 @@ src/main/java/com/wangtianyu/seckill
 └── common/       统一返回 + 异常处理
 sql/init.sql      建表 + 初始库存 1000（sku_id=1001）
 loadtest/bench.py 压测脚本（零依赖）
+tools/today.py    每天第一件事：告诉你今天干什么、直接跑当天自检
 tools/verify.py   每日自检（跑完当天任务先自检，绿了再验收）
 PLAN.md           14 天计划 + 每日验收标准
 PROGRESS.md       每日打卡表
