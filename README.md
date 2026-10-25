@@ -65,10 +65,14 @@ src/main/java/com/wangtianyu/seckill
 ├── entity/       实体
 ├── config/       Redis / RabbitMQ 配置（已搭好）
 └── common/       统一返回 + 异常处理
-sql/init.sql      建表 + 初始库存 1000
+sql/init.sql      建表 + 初始库存 1000（sku_id=1001）
 loadtest/bench.py 压测脚本（零依赖）
+tools/verify.py   每日自检（跑完当天任务先自检，绿了再验收）
 PLAN.md           14 天计划 + 每日验收标准
 PROGRESS.md       每日打卡表
+docs/D1-环境.md            JDK/Maven/Docker 装法与 8 个常见坑
+docs/压测报告模板.md        D3/D9/D11 往里填数字
+docs/面试话术提纲.md        10 题骨架句式（照着练，别背稿）
 ```
 
 ## 面试可讲的 8 个点（做完自然会有答案）

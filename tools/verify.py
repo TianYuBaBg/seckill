@@ -112,7 +112,7 @@ def mysql_query(sql):
 
 
 def stock_is_1000():
-    val = mysql_query("SELECT stock FROM t_seckill_stock WHERE id = 1;")
+    val = mysql_query("SELECT stock FROM sku_stock WHERE sku_id = 1001;")
     if val != "1000":
         raise RuntimeError(f"库存是 {val}，应该是 1000（跑过压测就 TRUNCATE 后重灌 init.sql）")
     return "stock=1000"
@@ -120,7 +120,7 @@ def stock_is_1000():
 
 def tables_exist():
     val = mysql_query("SHOW TABLES;").splitlines()
-    need = {"t_seckill_stock", "t_seckill_order"}
+    need = {"sku_stock", "seckill_order"}
     missing = need - set(v.strip() for v in val)
     if missing:
         raise RuntimeError(f"缺表：{missing}（init.sql 没执行成功）")
@@ -129,10 +129,10 @@ def tables_exist():
 
 def seckill_endpoint_exists():
     code, out = run(["curl", "-s", "-o", "NUL", "-w", "%{http_code}", "-X", "POST",
-                     f"{APP}/api/seckill/1?userId=1"])
+                     f"{APP}/api/seckill/1001?userId=1"])
     http = out.strip() if code == 0 else ""
     if http != "200":
-        raise RuntimeError(f"POST /api/seckill/1 返回 HTTP {http or '连不上'}，应该是 200（接口存在且应用在跑）")
+        raise RuntimeError(f"POST /api/seckill/1001 返回 HTTP {http or '连不上'}，应该是 200（接口存在且应用在跑）")
     return "HTTP 200"
 
 
