@@ -7,6 +7,10 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import org.springframework.util.StreamUtils;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 @Configuration
 public class RedisConfig {
@@ -29,7 +33,12 @@ public class RedisConfig {
      * 返回：>=0 扣减成功后的剩余库存；-1 库存不足；-2 key 不存在
      */
     @Bean
-    public DefaultRedisScript<Long> seckillScript() {
-        return new DefaultRedisScript<>(new ClassPathResource("lua/seckill.lua"), Long.class);
+    public DefaultRedisScript<Long> seckillScript() throws IOException {
+        String lua = StreamUtils.copyToString(
+                new ClassPathResource("lua/seckill.lua").getInputStream(), StandardCharsets.UTF_8);
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setScriptText(lua);
+        script.setResultType(Long.class);
+        return script;
     }
 }
