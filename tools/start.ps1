@@ -1,69 +1,77 @@
-﻿# 一条命令把 D1 走完（Windows PowerShell）
+﻿# 一条命令准备今天的环境（Windows PowerShell）
 # 用法：在 D:\me\seckill 目录下执行
-#   .\tools\start.ps1
-# 它做三件事：① 检查 JDK/Maven/Docker ② 起中间件并等健康 ③ 告诉你下一步敲什么
+#   powershell -ExecutionPolicy Bypass -File tools\start.ps1
+#
+# 它做四件事：
+#   ① 唤醒 WSL 并把 MySQL/Redis/RabbitMQ 拉起来（这三个装在 WSL Ubuntu-22.04 里）
+#   ② 等 Windows 侧 3 个端口真正可连（这一步是以前最常见的"明明起来了却连不上"）
+#   ③ 检查 JDK 17 / Maven
+#   ④ 告诉你下一步敲什么
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $root
 
 function Write-Step($msg) { Write-Host "`n== $msg" -ForegroundColor Cyan }
-function Write-Ok($msg)   { Write-Host "  [OK]   $msg" -ForegroundColor Green }
-function Write-Bad($msg)  { Write-Host "  [缺]   $msg" -ForegroundColor Red }
+function Write-Ok($msg)   { Write-Host "  [OK]  $msg" -ForegroundColor Green }
+function Write-Bad($msg)  { Write-Host "  [!!]  $msg" -ForegroundColor Red }
 
-$missing = @()
+$distro = "Ubuntu-22.04"
+$ports  = @(3306, 6379, 5672)
 
-Write-Step "1/3 检查工具"
-
-# JDK 17
-$javaOk = $false
-if (Get-Command java -ErrorAction SilentlyContinue) {
-    $v = (& java -version 2>&1 | Select-Object -First 1) -join ""
-    if ($v -match '"(1\.)?(?<maj>\d+)') {
-        $maj = [int]$Matches['maj']
-        if ($maj -ge 17) { $javaOk = $true; Write-Ok "JDK $maj" }
-        else { Write-Bad "JDK 是 $maj，需要 17+（pom.xml 里定的是 17）"; $missing += "jdk" }
-    }
-} else { Write-Bad "没装 JDK"; $missing += "jdk" }
-
-# Maven
-if (Get-Command mvn -ErrorAction SilentlyContinue) {
-    $mv = (& mvn -v 2>&1 | Select-Object -First 1) -join ""
-    Write-Ok "Maven $mv"
-} else { Write-Bad "没装 Maven"; $missing += "maven" }
-
-# Docker
-$dockerOk = $false
-if (Get-Command docker -ErrorAction SilentlyContinue) {
-    $null = & docker info 2>&1
-    if ($LASTEXITCODE -eq 0) { $dockerOk = $true; Write-Ok "Docker 引擎在运行" }
-    else { Write-Bad "Docker 装了但引擎没起（打开 Docker Desktop 等它变成 Running）"; $missing += "docker-run" }
-} else { Write-Bad "没装 Docker Desktop"; $missing += "docker" }
-
-if ($missing.Count -gt 0) {
-    Write-Step "先补这些（装完重新跑本脚本）"
-    if ($missing -contains "jdk")    { Write-Host "  JDK 17   : https://adoptium.net/temurin/releases/?version=17" }
-    if ($missing -contains "maven")  { Write-Host "  Maven    : https://maven.apache.org/download.cgi （解压后把 bin 加进 PATH）" }
-    if ($missing -contains "docker") { Write-Host "  Docker   : https://www.docker.com/products/docker-desktop/ （装时勾 WSL2 backend，装完可能要重启）" }
-    if ($missing -contains "docker-run") { Write-Host "  打开开始菜单里的 Docker Desktop，等右下角鲸鱼图标不动了再跑本脚本" }
-    Write-Host "`n装完请重开一个 PowerShell 窗口，让新的 PATH 生效。" -ForegroundColor Yellow
+# ---------- 1. 起中间件 ----------
+Write-Step "1/4 起中间件（WSL: $distro）"
+if (-not (Get-Command wsl -ErrorAction SilentlyContinue)) {
+    Write-Bad "找不到 wsl 命令。请先在 PowerShell 里跑 wsl --install"
     exit 1
 }
-
-Write-Step "2/3 起中间件（MySQL / Redis / RabbitMQ）"
-& docker compose up -d
-if ($LASTEXITCODE -ne 0) { Write-Host "  docker compose 失败，把上面的报错发我" -ForegroundColor Red; exit 1 }
-
-Write-Host "  等 mysql 健康（最多 90 秒）..."
-$ready = $false
-for ($i = 1; $i -le 45; $i++) {
-    $status = (& docker inspect --format "{{.State.Health.Status}}" seckill-mysql 2>$null)
-    if ($status -eq "healthy") { $ready = $true; break }
-    Start-Sleep -Seconds 2
+$wslScript = "/mnt/d/me/seckill/tools/wsl-mw.sh"
+if (-not (Test-Path "D:\me\seckill\tools\wsl-mw.sh")) {
+    $wslScript = "/mnt/" + ($root.Substring(0,1).ToLower()) + ($root.Substring(2) -replace '\\', '/') + "/tools/wsl-mw.sh"
 }
-if ($ready) { Write-Ok "三个容器就绪（mysql 健康）" } else { Write-Host "  mysql 还没 healthy，用 docker logs seckill-mysql 看原因" -ForegroundColor Yellow }
+$null = & wsl -d $distro -u root -- bash $wslScript start 2>&1
+if ($LASTEXITCODE -ne 0) { Write-Bad "拉起服务失败，手动看状态：wsl -d $distro -u root -- bash $wslScript status" }
 
-Write-Step "3/3 下一步（复制这两行到新窗口）"
-Write-Host "  mvn spring-boot:run" -ForegroundColor White
-Write-Host "  python tools/verify.py --day 1" -ForegroundColor White
-Write-Host "`n看到 verify.py 全 [PASS]，就在 PROGRESS.md 记一行，然后跟我说「Day 1 完成」。" -ForegroundColor Green
+# ---------- 2. 等端口 ----------
+Write-Step "2/4 等端口可连（最多 90 秒）"
+$deadline = (Get-Date).AddSeconds(90)
+$allOk = $false
+while ((Get-Date) -lt $deadline) {
+    $okCount = 0
+    foreach ($p in $ports) {
+        $c = New-Object Net.Sockets.TcpClient
+        try { $null = $c.Connect("127.0.0.1", $p); $okCount++ } catch {} finally { $c.Close() }
+    }
+    if ($okCount -eq $ports.Count) { $allOk = $true; break }
+    Start-Sleep -Seconds 3
+}
+if ($allOk) {
+    Write-Ok "3306(MySQL) / 6379(Redis) / 5672(RabbitMQ) 都可连"
+} else {
+    Write-Bad "端口没全通。多半是 WSL 没起来：wsl --shutdown 然后重跑本脚本"
+    Write-Host "  手动看状态：wsl -d $distro -u root -- bash $wslScript status" -ForegroundColor DarkGray
+}
+
+# ---------- 3. 检查 JDK / Maven ----------
+Write-Step "3/4 检查 JDK 17 / Maven"
+$jdkHome = $null
+foreach ($cand in @("C:\Users\Administrator\.jdks\ms-17.0.17", $env:JAVA_HOME)) {
+    if ($cand -and (Test-Path "$cand\bin\java.exe")) { $jdkHome = $cand; break }
+}
+if ($jdkHome) { Write-Ok "JDK: $jdkHome"; $env:JAVA_HOME = $jdkHome }
+elseif (Get-Command java -ErrorAction SilentlyContinue) { Write-Ok ("JDK: " + ((& java -version 2>&1)[0])) }
+else { Write-Bad "没找到 JDK 17：https://adoptium.net/temurin/releases/?version=17" }
+
+$mvn = "C:\Program Files\JetBrains\IntelliJ IDEA 2024.3.7\plugins\maven\lib\maven3\bin\mvn.cmd"
+if (Get-Command mvn -ErrorAction SilentlyContinue) { Write-Ok "Maven: 系统 PATH 里的" }
+elseif (Test-Path $mvn) { Write-Ok "Maven: IDEA 自带的" }
+else { Write-Bad "没找到 Maven：IDEA 的 Settings > Build Tools > Maven 自带即可" }
+
+# ---------- 4. 下一步 ----------
+Write-Step "4/4 下一步"
+Write-Host "  A. 在 IDEA 里 Run SeckillApplication（推荐，能断点）" -ForegroundColor White
+Write-Host "  B. 或者命令行：" -ForegroundColor White
+Write-Host "     `$env:JAVA_HOME='$jdkHome'; & `"$mvn`" spring-boot:run" -ForegroundColor DarkGray
+Write-Host "`n  起来以后自检（全绿再叫验收）：" -ForegroundColor White
+Write-Host "     python tools/verify.py --day 1" -ForegroundColor DarkGray
+Write-Host "`n  提醒：中间件在 WSL 里，电脑重启后要先跑本脚本再启动应用。" -ForegroundColor Yellow

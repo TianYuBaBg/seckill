@@ -14,15 +14,17 @@
 4. 卡住时优先贴三样：完整报错、你执行的命令、你期望的结果。
 5. 周末不排任务：D1~D14 是**工作日**计数，实际跨度约 3 周。
 
-## D1 · 环境跑通（60min）
+## D1 · 环境跑通（60min）✅ 已完成（环境由我代装）
 
-- 装：JDK 17、Maven（IDEA 自带的也行）、Docker Desktop。
-- `docker compose up -d` 起 MySQL/Redis/RabbitMQ；`mvn spring-boot:run` 起应用。
-- **验收**
-  - `curl http://localhost:8080/actuator/health` → `"status":"UP"`
-  - `docker ps` 三个容器都是 `healthy`
-  - 数据库里 `seckill.sku_stock` 有 1 条记录，stock=1000
-  - 浏览器能打开 http://localhost:15672
+- ~~装 JDK 17、Maven、Docker Desktop~~ → **本机已有**：JDK 17（`C:\Users\Administrator\.jdks\ms-17.0.17`）+ IDEA 自带 Maven
+- ~~Docker~~ → **不用装**：MySQL 8.0.46 / Redis 6.0.16 / RabbitMQ 3.9.27 已装在 WSL Ubuntu 22.04，端口直通 `127.0.0.1`
+- IDEA 语言级别已从 21 改成 17（`pom.xml` 里 `maven.compiler.release=17` 写死，重装 IDE 也不会丢）
+- **验收（已实测通过）**
+  - `python tools/verify.py --day 2` → 6 项全 PASS
+  - `curl http://127.0.0.1:8080/actuator/health` → `"status":"UP"`（db/redis/rabbit 全 UP）
+  - 表结构与库存：`sku_stock` 1 条，`sku_id=1001`，stock=1000
+  - RabbitMQ 管理台 http://127.0.0.1:15672 可打开
+- **你要做的唯一动作**：在 IDEA 里 Run `SeckillApplication`，看到 health 全 UP 就算过关
 
 ## D2 · DB 版秒杀（最笨但能跑的版本）（60min）
 

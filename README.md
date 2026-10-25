@@ -31,26 +31,30 @@
 
 ## 快速开始
 
-```bash
-# 0. 一条命令：检查 JDK17/Maven/Docker，缺什么直接告诉你链接，齐了就把中间件起起来
-powershell -ExecutionPolicy Bypass -File tools/start.ps1
+> 本机环境已就绪（MySQL/Redis/RabbitMQ 跑在 WSL 里，JDK17 + Maven 已配好），
+> 详见 **[docs/WSL-中间件.md](docs/WSL-中间件.md)**。Docker 那条路当备选，不是必须。
 
-# 1. 起中间件（MySQL + Redis + RabbitMQ）
-docker compose up -d
+```powershell
+# 1. 起中间件（每天开机后跑一次；WSL 里的服务不会自动启）
+wsl -d Ubuntu-22.04 -u root -- bash /mnt/d/me/seckill/tools/wsl-mw.sh start
 
-# 2. 起应用（本机需 JDK 17 + Maven）
+# 2. 起应用（IDEA 里 Run SeckillApplication，或命令行）
 mvn spring-boot:run
 
 # 3. 冒烟
-curl http://localhost:8080/api/seckill/detail/1001
-curl -X POST "http://localhost:8080/api/seckill/1001?userId=1"
+curl http://127.0.0.1:8080/api/seckill/detail/1001
+curl -X POST "http://127.0.0.1:8080/api/seckill/1001?userId=1"
 
-# 4. 压测（零依赖，用 Python 标准库）
+# 4. 自检（跑完当天任务先跑这个，全绿再叫我验收）
+python tools/verify.py --day 1
+
+# 5. 压测（零依赖，用 Python 标准库）
 python loadtest/bench.py --total 5000 --concurrency 200
 ```
 
-- RabbitMQ 管理台：http://localhost:15672 （guest/guest）
-- 健康检查：http://localhost:8080/actuator/health
+- RabbitMQ 管理台：http://127.0.0.1:15672 （guest/guest）
+- 健康检查：http://127.0.0.1:8080/actuator/health
+- 重置库存（每次压测后）：`wsl -d Ubuntu-22.04 -u root -- bash /mnt/d/me/seckill/tools/wsl-mw.sh reset-stock`
 
 ## 压测报告
 
