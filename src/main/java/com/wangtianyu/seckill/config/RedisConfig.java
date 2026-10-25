@@ -30,9 +30,6 @@ public class RedisConfig {
      */
     @Bean
     public DefaultRedisScript<Long> seckillScript() {
-        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
-        script.setResource(new ClassPathResource("lua/seckill.lua"));
-        script.setResultType(Long.class);
-        return script;
+        return new DefaultRedisScript<>(new ClassPathResource("lua/seckill.lua"), Long.class);
     }
 }
