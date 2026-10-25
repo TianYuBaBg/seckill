@@ -264,6 +264,13 @@ def main():
 
     if d >= 2:
         check("建表完成", tables_exist)
+        # 上次自检/压测会把库存留在 999：先归零再检查，否则每次都要你手动重灌 sql
+        try:
+            if mysql_query("SELECT stock FROM sku_stock WHERE sku_id = 1001;") != "1000":
+                print("  [重置] 库存/订单不是初始态，自动归零")
+                _reset_stock()
+        except Exception as exc:  # 表还没建的时候别把整个自检炸了
+            print(f"  [跳过重置] {exc}")
         check("初始库存 1000", stock_is_1000)
 
     if d >= 3:
