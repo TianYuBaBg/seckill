@@ -124,17 +124,38 @@ def app_health():
     return "UP（" + ", ".join(f"{k}:{v}" for k, v in comps.items()) + "）"
 
 
+def _clean_mysql(out):
+    """去掉 mysql 客户端在 stderr 上的密码警告。"""
+    kept = [l for l in out.splitlines() if "Using a password" not in l]
+    return "\n".join(kept)
+
+
 def mysql_query(sql):
-    """优先 docker exec，其次 wsl 直连。"""
+    """优先 docker exec，其次 wsl 直连；用于「有返回结果」的查询。"""
     if docker_ready():
         code, out = run(["docker", "exec", MYSQL_CONTAINER, "mysql", "-uroot",
                          f"-p{DB_PASSWORD}", "-N", "-B", "seckill", "-e", sql])
         if code == 0:
             return out.strip()
-    code, out = wsl(f"mysql -uroot -p{DB_PASSWORD} -N -B seckill -e \"{sql}\" 2>/dev/null")
+    code, out = wsl('MYSQL_PWD={0} mysql -uroot -N -B seckill -e "{1}"'.format(DB_PASSWORD, sql))
+    out = _clean_mysql(out)
     if code != 0 or not out.strip():
-        raise RuntimeError(f"mysql 查询失败：{out.strip()[:120] or '无输出'}")
+        raise RuntimeError("mysql 查询失败：{0}".format((out.strip()[:160]) or "无输出"))
     return out.strip()
+
+
+def mysql_exec(sql):
+    """执行一条不关心返回结果的写语句（insert/update/truncate）。"""
+    if docker_ready():
+        code, out = run(["docker", "exec", MYSQL_CONTAINER, "mysql", "-uroot",
+                         f"-p{DB_PASSWORD}", "-N", "-B", "seckill", "-e", sql])
+        if code == 0:
+            return True
+    code, out = wsl('MYSQL_PWD={0} mysql -uroot -N -B seckill -e "{1}"'.format(DB_PASSWORD, sql))
+    out = _clean_mysql(out)
+    if code != 0:
+        raise RuntimeError("SQL 执行失败：{0}".format((out.strip()[:160]) or "无输出"))
+    return True
 
 
 def redis_ping():
@@ -192,9 +213,8 @@ def bench_report_exists():
 
 def _reset_stock():
     """把库存和订单清回初始态（压测/重复自检前用）。"""
-    sql = ("TRUNCATE TABLE seckill_order;"
-           "UPDATE sku_stock SET stock = 1000, sold = 0, version = 0 WHERE sku_id = 1001;")
-    mysql_query(sql)
+    mysql_exec("TRUNCATE TABLE seckill_order")
+    mysql_exec("UPDATE sku_stock SET stock = 1000, sold = 0, version = 0 WHERE sku_id = 1001")
 
 
 def _post_seckill(user_id=1):
