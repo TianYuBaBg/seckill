@@ -32,6 +32,9 @@
 ## 快速开始
 
 ```bash
+# 0. 一条命令：检查 JDK17/Maven/Docker，缺什么直接告诉你链接，齐了就把中间件起起来
+powershell -ExecutionPolicy Bypass -File tools/start.ps1
+
 # 1. 起中间件（MySQL + Redis + RabbitMQ）
 docker compose up -d
 
