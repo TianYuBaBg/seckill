@@ -17,7 +17,7 @@ import os
 import shutil
 import subprocess
 import sys
-import urllib.error
+
 import urllib.request
 
 APP = "http://localhost:8080"
@@ -129,15 +129,11 @@ def tables_exist():
 
 def seckill_endpoint_exists():
     code, out = run(["curl", "-s", "-o", "NUL", "-w", "%{http_code}", "-X", "POST",
-                     f"{APP}/api/seckill/1"])
-    if code != 0:
-        # 非 Windows 或没 curl，直接用 urllib
-        try:
-            with urllib.request.urlopen(f"{APP}/api/seckill/1", timeout=10):
-                return "HTTP 200"
-        except urllib.error.HTTPError as e:
-            return f"HTTP {e.code}（接口存在，业务码见响应）"
-    return f"HTTP {out.strip()}"
+                     f"{APP}/api/seckill/1?userId=1"])
+    http = out.strip() if code == 0 else ""
+    if http != "200":
+        raise RuntimeError(f"POST /api/seckill/1 返回 HTTP {http or '连不上'}，应该是 200（接口存在且应用在跑）")
+    return "HTTP 200"
 
 
 def bench_report_exists():
