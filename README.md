@@ -1,6 +1,10 @@
 # Seckill · 高并发秒杀/抢购服务
 
 [![ci](https://github.com/TianYuBaBg/seckill/actions/workflows/ci.yml/badge.svg)](https://github.com/TianYuBaBg/seckill/actions/workflows/ci.yml)
+[![integration](https://github.com/TianYuBaBg/seckill/actions/workflows/integration.yml/badge.svg)](https://github.com/TianYuBaBg/seckill/actions/workflows/integration.yml)
+
+> `ci` = 编译过；`integration` = 在干净环境里真起 MySQL/Redis/MQ、真启动应用、真调接口、真压一轮。
+> 两个都绿，说明不是"我本地能跑"，是"任何机器都能跑"。
 
 一个用 Java 17 + Spring Boot 3 写的秒杀系统，目标不是"功能多"，而是**把高并发这一条链路做透**：
 库存不超卖、下单不重复、削峰不丢消息、压得住流量、扛得住故障、能一键起来。
