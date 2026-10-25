@@ -1,0 +1,82 @@
+name: integration
+
+# 真起中间件 + 真跑接口 + 真压一轮。
+# 目的：你每次 push，我不用信你"本地跑通了"，这里直接给你证据。
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  it:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: seckill
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=5s --health-timeout=3s --health-retries=20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s --health-timeout=3s --health-retries=20
+      rabbitmq:
+        image: rabbitmq:3.13-alpine
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd="rabbitmq-diagnostics -q ping"
+          --health-interval=10s --health-timeout=5s --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: 初始化数据库
+        run: |
+          sudo apt-get install -y -q mysql-client >/dev/null 2>&1 || true
+          mysql -h 127.0.0.1 -uroot -proot < sql/init.sql
+          mysql -h 127.0.0.1 -uroot -proot -e "select * from seckill.sku_stock;"
+
+      - name: 构建
+        run: mvn -B -ntp -DskipTests package
+
+      - name: 启动应用并等健康检查
+        run: |
+          nohup java -jar target/seckill-*.jar > app.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/actuator/health > /dev/null; then
+              echo "app up after ${i}s"; break
+            fi
+            sleep 1
+          done
+          curl -sf http://localhost:8080/actuator/health
+          echo
+
+      - name: 冒烟：详情 + 下单
+        run: |
+          set -x
+          curl -s "http://localhost:8080/api/seckill/detail/1001"; echo
+          curl -s -X POST "http://localhost:8080/api/seckill/1001?userId=1"; echo
+          curl -s "http://localhost:8080/api/seckill/result/1001/1"; echo
+
+      - name: 小压一轮（200 并发 20）
+        run: python3 loadtest/bench.py --total 200 --concurrency 20 --sku 1001 --out loadtest/ci.json || true
+
+      - name: 失败时把应用日志吐出来
+        if: failure()
+        run: tail -n 200 app.log
