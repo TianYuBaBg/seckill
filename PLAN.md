@@ -28,6 +28,9 @@
 
 ## D2 · DB 版秒杀（最笨但能跑的版本）（60min）
 
+> **照着做**：[docs/D2-照着做.md](docs/D2-照着做.md)（含验收命令、4 个坑、面试话术）。
+> 验收：`python tools/verify.py --day 3`
+
 - 补全 `SeckillServiceImpl` 的 `detail / seckill / result`：`deductStock` 扣减成功就插一条订单。
 - **验收**
   - `curl -X POST "http://localhost:8080/api/seckill/1001?userId=1"` 返回成功
