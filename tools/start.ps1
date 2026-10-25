@@ -19,6 +19,11 @@ function Write-Bad($msg)  { Write-Host "  [!!]  $msg" -ForegroundColor Red }
 $distro = "Ubuntu-22.04"
 $ports  = @(3306, 6379, 5672)
 
+# ---------- 0. 让 WSL 别睡着 ----------
+Write-Step "0/4 让 WSL 保持唤醒（否则空闲 40 秒就自动关闭）"
+$keep = Join-Path $root "tools\wsl-keepalive.ps1"
+if (Test-Path $keep) { & powershell -NoProfile -ExecutionPolicy Bypass -File $keep }
+
 # ---------- 1. 起中间件 ----------
 Write-Step "1/4 起中间件（WSL: $distro）"
 if (-not (Get-Command wsl -ErrorAction SilentlyContinue)) {

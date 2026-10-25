@@ -78,14 +78,25 @@ def docker_ready():
     return code == 0
 
 
-def tcp_open(host, port, timeout=2.0):
+def tcp_open(host, port, timeout=5.0):
     with socket.create_connection((host, port), timeout=timeout):
         return True
 
 
+def _retry_tcp(host, port, tries=3, gap=1.0):
+    import time as _t
+    for i in range(tries):
+        try:
+            return tcp_open(host, port)
+        except Exception:
+            if i == tries - 1:
+                raise
+            _t.sleep(gap)
+
+
 def middleware_ports():
     dead = [f"{name}({port})" for port, name in PORTS.items()
-            if not _try(tcp_open, "127.0.0.1", port)]
+            if not _try(_retry_tcp, "127.0.0.1", port)]
     if dead:
         raise RuntimeError(f"连不上：{', '.join(dead)}（WSL 里没起？试试 wsl -d {WSL_DISTRO} -u root -- systemctl start mysql redis-server rabbitmq-server）")
     return "3306 / 6379 / 5672 都可连"

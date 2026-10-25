@@ -35,22 +35,26 @@ wsl -d Ubuntu-22.04 -u root -- bash /mnt/d/me/seckill/tools/wsl-mw.sh start
 wsl -d Ubuntu-22.04 -u root -- bash /mnt/d/me/seckill/tools/wsl-mw.sh reset-stock
 ```
 
-## 坑二：WSL 自己会停，一停就"中间件全挂了"
+## 坑二：WSL 空闲约 40 秒就自动关闭（"中间件凭空消失"的真凶）
 
-WSL 在一段时间没人用、或者你重启电脑后会**自己关闭**（`wsl -l -v` 显示 `Stopped`）。
-这时 Windows 上的应用连 3306/6379/5672 全是 `Connection refused`，`/actuator/health` 里
-`db/redis/rabbit` 全 DOWN —— 看起来像"没装中间件"，其实只是 WSL 睡了。
+实测：`wsl --shutdown` 后手动起好三个服务，**只要 40 秒没有任何 wsl 命令在跑，WSL 虚拟机就自己关掉**，
+3306/6379/5672 立刻全部 `Connection refused`，应用 `/actuator/health` 里 `db/redis/rabbit` 全 DOWN。
+看起来就像"根本没装 MySQL 和 Redis"——其实就是 WSL 睡了。
 
-两个已经做好的兜底：
+三条兜底（都已装好）：
 
-1. `/etc/wsl.conf` 里加了 `[boot] command=...`，**WSL 一启动就自动把三个服务拉起来**；
-2. `tools/start.ps1` 会先唤起 WSL、再等端口真正可连，最后才提示你启动应用。
+1. **保活进程**：`tools/wsl-keepalive.ps1` 会起一个隐藏的 `wsl ... sleep infinity`，
+   只要它活着，WSL 就不会休眠。`start.ps1` 第一步就会自动调用它。
+2. **WSL 启动即拉起服务**：`/etc/wsl.conf` 里配了 `[boot] command=... systemctl start ...`。
+3. **等端口再起应用**：`start.ps1` 会一直等到 3306/6379/5672 真正可连才提示下一步。
+
+> 也试过 `.wslconfig` 的 `vmIdleTimeout=-1`，在 WSL 2.6.3 + 镜像网络下**不生效**，所以走保活进程这条路。
 
 规矩记一条：**先 `start.ps1`，再起应用。**
 
-> 这也是一条面试可讲的排查故事：「本地中间件在 WSL 里，WSL 是懒启动的，
-> 应用先起来时 Redis/MySQL 还没就绪；后来我把启动顺序改成先探端口再起应用，
-> 并在 WSL 的 boot 里加了自启脚本。」
+> 面试可讲的排查故事：「本地中间件跑在 WSL 里，WSL 是懒启动+会自己休眠的，
+> 应用先起来时 Redis/MySQL 还没就绪，健康检查全 DOWN。后来我加了保活进程 + 启动前探端口，
+> 才把这类'时好时坏'的连不上问题彻底按死。」
 
 ## 一个必须记住的坑：localhost ≠ 127.0.0.1
 
