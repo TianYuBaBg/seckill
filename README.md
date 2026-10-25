@@ -34,6 +34,9 @@
 > 本机环境已就绪（MySQL/Redis/RabbitMQ 跑在 WSL 里，JDK17 + Maven 已配好），
 > 详见 **[docs/WSL-中间件.md](docs/WSL-中间件.md)**。Docker 那条路当备选，不是必须。
 
+**最省事：双击项目根目录的 `run.cmd`** —— 它会自动拉起中间件、再启动应用（实测 1.7 秒启动）。
+不想用 IDEA 就这么干；要断点调试再用下面第 2 种方式。
+
 ```powershell
 # 1. 起中间件（每天开机后跑一次；WSL 里的服务不会自动启）
 wsl -d Ubuntu-22.04 -u root -- bash /mnt/d/me/seckill/tools/wsl-mw.sh start
